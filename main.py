@@ -1,40 +1,39 @@
-import requests
-import csv
-import time
-import datetime
-
+import os, requests, csv, time, datetime
 from bs4 import BeautifulSoup as bs4
+
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
-
+USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+WAIT_TIME = 15
+CHECK_INTERVAL_SECONDS = 1800
 
 def get_datetime_from_url(url):
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
+    headers = {'User-Agent': USER_AGENT}
     response = requests.get(url, headers=headers)
 
-    driver = webdriver.Chrome()
-    driver.get(url)
-
-    driver.implicitly_wait(15)
-    content = driver.page_source
-    response = requests.get(url)
+    with webdriver.Chrome() as driver:
+        driver.get(url)
+        driver.implicitly_wait(WAIT_TIME)
+        content = driver.page_source
 
     if response.status_code == 200:
-        time.sleep(3)
-        content = response.text
         soup = bs4(content, 'html.parser')
 
         target_element = soup.find('relative-time')
         datetime_value = target_element['datetime'] if target_element else None
 
         commit_message_element = soup.find('a', {'data-test-selector': 'commit-tease-commit-message'})
-        commit_message = commit_message_element['title'] if commit_message_element and 'title' in commit_message_element.attrs else None
-
-        driver.quit()
+        commit_message = commit_message_element['title'] if commit_message_element and 'title' in commit_message_element.attrs else "Error fetching commit msg"
+        
+        # Idk why it doesn't find the message sometimes. Seems to work when retrying.
+        if commit_message == "Error fetching commit msg":
+            print("Could not fetch commit message. Retrying...")
+            d, c = get_datetime_from_url(url)
+            return d, c
+        
         return datetime_value, commit_message
 
-    driver.quit()
     return None, None
 
 def save_to_csv(course, url, datetime_value, commit_message, username):
@@ -48,13 +47,26 @@ def save_to_csv(course, url, datetime_value, commit_message, username):
 
         writer.writerow({'course': course, 'user': username, 'url': url, 'datetime': datetime_value, 'commit_message': commit_message})
 
+def create_csv(filename='data.csv'):
+    with open(filename, 'w', newline='') as csvfile:
+        fieldnames = ['course', 'user', 'url', 'datetime', 'commit_message']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+    print("New CSV has been created.")
+
 def main():
     course = "n"
-    urls = [
+    urls = []
 
-https://privnote.com/1vMfd9OC#L4XrYMKz6
+    # csv with urls to be tracked
+    with open('urls.csv', 'r', newline='') as csvfile:
+        for row in csvfile:
+            urls.append(row.strip())
 
-    ]
+    # Check if 'data.csv' exists, else create it
+    file_exists = os.path.exists('data.csv')
+    if not file_exists:
+        create_csv()
 
     for url in urls:
         username = url[19:url.find('/', 19)]
@@ -76,4 +88,6 @@ if __name__ == "__main__":
     while True:
         print(f"{datetime.datetime.now()} Running script")
         main()
-        time.sleep(1800)
+        next_run_time = datetime.datetime.now() + datetime.timedelta(seconds=CHECK_INTERVAL_SECONDS)
+        print(f"Next run: {next_run_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        time.sleep(CHECK_INTERVAL_SECONDS)
