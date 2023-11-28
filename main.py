@@ -107,7 +107,7 @@ if __name__ == "__main__":
         if n_commits == 0:
             print(f"No new updates.")
         else:
-            print(f"{n_commits} new updates.\n")
+            print(f"{n_commits} new update(s).\n")
 
         next_run_time = datetime.datetime.now() + datetime.timedelta(seconds=CHECK_INTERVAL_SECONDS)
         print(f"Next run: {next_run_time.strftime('%Y-%m-%d %H:%M:%S')}")
