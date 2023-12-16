@@ -5,8 +5,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from tqdm import tqdm
 
-# This scraper can be used instead of GitHub API
-# Actually I haven't written the code for the API calls so this is the only way...
+# Discontinued / Legacy Code
+# This scraper can be used instead of GitHub API but probably shouldn't
 
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 WAIT_TIME = 15 # Max time for selenium
