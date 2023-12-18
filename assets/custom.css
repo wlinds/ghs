@@ -32,7 +32,21 @@ h3 {
     margin-left: 20px;
 }
 
-.custom-latest-commits {
+.custom-header-div {
+    font-family: Arial, sans-serif;
+    margin-left: 20px;
+    margin-top: 10px;
+    font-size: 12px;
+    color: #ffffff;
+    display: inline-block;
+    padding: 20px;
+    padding-top: 4px;
+    z-index: 999;
+    top: 25px;
+}
+
+/* Not in use */
+.nice-box {
     font-family: Arial, sans-serif;
     margin-left: 20px;
     margin-top: 10px;
@@ -63,13 +77,13 @@ h3 {
     background-color: rgb(47, 48, 59);
     border-bottom: 1px solid #ece4e4;
     background: linear-gradient(to left, rgb(47, 48, 59), rgb(37, 43, 49));
-    padding-bottom: 20px;
+    padding-bottom: 10px;
 }
 
 .button-div {
     position: absolute;
-    top: 549px;
-    left: 60px;
+    top: 539px;
+    left: 25px;
     z-index: 999;
 }
 
@@ -99,7 +113,7 @@ h3 {
     color: #b4b4b4;
     position: absolute;
     right: 3%;
-    top: 1%;
+    top: 0.66%;
     
 }
 
@@ -157,4 +171,14 @@ h3 {
     font-weight: bold;
     font-size: 10px;
     color: #ffffff;
+}
+
+.custom-fun-stats-value {
+    font-size: 22px;
+    font-weight: bold;
+    color:  rgba(252, 252, 252, 0.8);
+    margin-top: 12px;
+    margin-bottom: 0px;
+}
+
 }

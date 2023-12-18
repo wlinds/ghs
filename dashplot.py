@@ -11,8 +11,12 @@ import stat_conf as sc
 
 CHECK_INTERVAL_SECONDS = 3600
 TITLE = 'Commit Tracker'
-CSV_DATA = 'commit_data.csv'
+CSV_DATA = 'commit_data10.csv'
 REPOS = 'urls.csv'
+FUN_CARDS = True
+SHOW_LATEST = True
+SHOW_EVENTS = True
+CSV_EVENT_DATA = 'events.csv'
 
 external_stylesheets = ['/assets/custom.css']
 app = Dash(__name__, external_stylesheets=external_stylesheets)
@@ -39,37 +43,48 @@ def create_commit_plot(data, plot_type='line', cumulative=False, pred=True, pred
                         line=dict(color='#f0eac7', width=1), name='All Commits')
 
     return fig.update_layout(
-        plot_bgcolor='rgba(0, 0, 0, 0)', paper_bgcolor='rgba(0, 0, 0, 0)', height=550,
-        font_color='rgb(186,186,186)', margin=dict(l=80, r=50, t=128, b=20),
+        plot_bgcolor='rgba(0, 0, 0, 0)', paper_bgcolor='rgba(0, 0, 0, 0)', height=400,
+        font_color='rgb(186,186,186)', margin=dict(l=2, r=2, t=30, b=1),
         yaxis=dict(gridcolor='rgba(255, 255, 255, 0.1)', title=''),
         xaxis=dict(gridcolor='rgba(255, 255, 255, 0.1)', title=''))
 
-def generate_stat_card(title, desc, stat_function, icon, df):
+def generate_stat_card(title, desc, stat_function, icon, df, suffix):
+    stats = stat_function(df)
     return dbc.Card(dbc.CardBody([
             html.H3(f"{icon} {title}", className='custom-fun-stats-title'),
-            html.P(desc, className='custom-fun-stats-text'),
-            html.P(stat_function(df), className='custom-fun-stats-text-highlight')
+            #html.P(desc, className='custom-fun-stats-text'),
+            html.P(stats[1], className='custom-fun-stats-value'),
+            html.P(suffix, className='custom-fun-stats-text'),
+            html.P(stats[0], className='custom-fun-stats-text-highlight')
         ]),className='custom-fun-stats-card')
 
-fun_cards = [generate_stat_card(df=get_df(), **config) for config in sc.stat_configs]
+fun_cards = [generate_stat_card(df=get_df(), **config) for config in sc.stat_configs] if FUN_CARDS else []
+
+
+# -------------------------------------- LAYOUT -------------------------------------- #
 
 app.layout = html.Div(
     children = [html.Div(
         html.Div(f"{TITLE}", className='custom-title-class'), className='custom-header'),
-    html.Div(children=[html.Div(id='latest-commit', className='custom-latest-commits')]),
+
+    html.Div(
+    children=[
+        html.Div(id='latest-commit', className='custom-header-div'),
+        html.Div(id='top-info-box', className='custom-header-div'),
+    ],style={'display': 'flex', 'margin-right': '10px'}),
     
-    html.Div([html.Button(id='switch-plot', n_clicks=0, className='btn'),
-              html.Button(id='cum-button', n_clicks=0, className='btn')],
-              className='button-div'),
+    html.Div(id='total-commits', className='custom-total-commits'),
 
     html.Div([
     dcc.Graph(id='commit-graph',figure=create_commit_plot(get_df(), plot_type='line'))],
     className='plot-div'),
     
-    html.Div(id='total-commits', className='custom-total-commits'),
+    html.Div([
+        html.Button(id='switch-plot', n_clicks=0, className='btn'),
+        html.Button(id='cum-button', n_clicks=0, className='btn')], className='button-div'),
+
     dcc.Interval(id='interval-component',
                  interval=CHECK_INTERVAL_SECONDS * 1000, n_intervals=0),
-
 
     dbc.Row(className='custom-fun-stats-container', children=fun_cards),
 
@@ -77,7 +92,10 @@ app.layout = html.Div(
 
     ],id='main-content')
 
-@app.callback(Output('latest-commit', 'children'), [Input('commit-graph', 'figure')])
+
+# ------------------------------------- CALLBACKS ------------------------------------- #
+
+@app.callback(Output('latest-commit', 'children'), [Input('interval-component', 'n_intervals')])
 def get_latest_commits(figure):
     df = get_df()
     df['datetime'] = pd.to_datetime(df['datetime']) # TODO fix the god damn time formatting once and for all literally half this function is just time formatting
@@ -101,10 +119,29 @@ def get_latest_commits(figure):
 
     return latest_updates
 
-@app.callback(Output('total-commits', 'children'),
-              [Input('commit-graph', 'figure'),
-               Input('interval-component', 'n_intervals')])
-def update_stats_box(figure, n_intervals):
+
+@app.callback(Output('top-info-box', 'children'), [Input('interval-component', 'n_intervals')])
+def get_top_info_box(n_intervals):
+    df = pd.read_csv(CSV_EVENT_DATA)
+    df.columns = df.columns.str.strip()
+    
+    current_datetime = datetime.datetime.now(datetime.timezone.utc)
+
+    events_html = [
+        html.H3("UPCOMING EVENTS"),
+        html.Ul([
+            html.Li([
+                html.Strong(f"{datetime.datetime.fromisoformat(row['date']).strftime('%Y-%m-%d %H:%M')}"),
+                html.Span(f" - {row['custom_event']}"),
+                html.A('[Link]', href=row['href'], target='_blank') if pd.notna(row['href']) and datetime.datetime.fromisoformat(row['date']).replace(tzinfo=datetime.timezone.utc) > current_datetime else None
+            ])
+            for _, row in df.iterrows() if datetime.datetime.fromisoformat(row['date']).replace(tzinfo=datetime.timezone.utc) > current_datetime
+        ])]
+
+    return events_html
+
+@app.callback(Output('total-commits', 'children'), [Input('interval-component', 'n_intervals')])
+def update_stats_box(n_intervals):
     total_commits_text = len(get_df())
     return f"Total Commits: {total_commits_text}"
 
@@ -112,8 +149,9 @@ def update_stats_box(figure, n_intervals):
                Output('switch-plot', 'children'),
                Output('cum-button', 'children')],
               [Input('switch-plot', 'n_clicks'),
-               Input('cum-button', 'n_clicks')])
-def update_plot(switch_clicks, cum_clicks):
+               Input('cum-button', 'n_clicks'),
+               Input('interval-component', 'n_intervals')])
+def update_plot(switch_clicks, cum_clicks,n_intervals):
     ctx = callback_context
     if not ctx.triggered_id:
         button_id = 'switch-plot'
@@ -128,11 +166,14 @@ def update_plot(switch_clicks, cum_clicks):
     cum_button_text = f'{"Show" if not cum_val else "Hide"} total commits'
     return fig, switch_button_text, cum_button_text
 
+
+# --------------------------------- THREADED API LOOP ---------------------------------- #
+
 def git_scraper():
     global last_run, next_run, plot_data
     while True:
         last_run = (datetime.datetime.now())
-        fetch_all_repos(REPOS, commit_limit=8) # Use API instead of scraping for 5k requests/hour
+        fetch_all_repos(REPOS, commit_limit=8)
         next_run = datetime.datetime.now() + datetime.timedelta(seconds=CHECK_INTERVAL_SECONDS)
         print(f"Run completed. Next run: {next_run.strftime('%Y-%m-%d %H:%M:%S')}")
 
